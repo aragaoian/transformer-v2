@@ -61,17 +61,6 @@ class Bpe:
             self.splits[word] = new_split
 
     def tokenize(self):
-        pass
-
-    def train(self, corpus: list[str]):
-        for phrase in corpus:
-            normalized_phrase = self.normalization(phrase)
-            pre_tokenized_phrase = self.pre_tokenization(normalized_phrase)
-            self.compute_frequencies(pre_tokenized_phrase)
-
-        self.build_splits()
-        print(self.splits)
-
         while len(self.vocabulary) < self.max_tokens:
             adj_pairs = self.count_pairs()
             print(adj_pairs)
@@ -84,4 +73,11 @@ class Bpe:
 
             self.merge_pair(most_freq_pair)
 
-        print(self.vocabulary)
+    def train(self, corpus: list[str]):
+        for phrase in corpus:
+            normalized_phrase = self.normalization(phrase)
+            pre_tokenized_phrase = self.pre_tokenization(normalized_phrase)
+            self.compute_frequencies(pre_tokenized_phrase)
+
+        self.build_splits()
+        self.tokenize()
