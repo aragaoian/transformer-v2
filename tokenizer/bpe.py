@@ -1,25 +1,27 @@
-from glob import translate
 import re
 import unicodedata
+from collections import defaultdict
 
 
 # TODO
-"""
-1. Normalize the corpus.
-2. Pre-tokenize it into words.
-3. Count how often each distinct pre-token appears. This gives a table like your words list.
-4. Split each distinct word into characters and build the base vocabulary from those characters.
-5. Run the merge-learning loop, weighting each pair by the word’s frequency.
-"""
+# 1. See more about gpt-2 space handle style
+# 2. test on the corpus
+
+SPECIAL_SPACE_CHAR = "\u0120"
 
 
 class Bpe:
-    def __init__(self, languages: tuple[str, str] = ("en", "pt")):
+    def __init__(
+        self, languages: tuple[str, str] = ("en", "pt"), max_tokens: int = 50000
+    ):
         self.languages = languages
         self.original = languages[0]
         self.translated = languages[1]
+        self.max_tokens = max_tokens
         self.vocabulary = [chr(i) for i in range(128)]
-        self.words = {}
+        self.words: dict[str, int] = defaultdict(int)
+        self.splits: dict[str, list[str]] = None
+        self.merges: list[tuple[str, str]] = []
 
     def normalization(self, text: str) -> str:
         unicode_normalized_seq = unicodedata.normalize("NFD", text)
@@ -29,53 +31,57 @@ class Bpe:
     def pre_tokenization(self, text: str) -> list[str]:
         return re.findall(r"\w+|[^\w\s]", text)
 
-    def single_char_split(self, pre_tokens: list[str]) -> list[str]:
-        joined_words = "".join(pre_tokens)
-        return [*joined_words]
-
     def compute_frequencies(self, pre_tokenized_list: list[str]) -> dict:
         for word in pre_tokenized_list:
-            if word not in self.words:
-                self.words[word] = 1
-            else:
-                self.words[word] += 1
+            self.words[word] += 1
 
-    def merge(self, pre_tokens: list[str], splitted_pre_tokens: list[str]):
-        """1. Take the rules in the order they were learned, from first to last.
-        2. For the current rule, scan the word’s symbols from left to right, looking for places where the two symbols of the rule sit side by side.
-        3. Wherever the pair is found, replace the two symbols with the single merged symbol.
-        4. Move to the next rule and repeat on the updated sequence.
-        5. When all rules have been tried, whatever symbols remain are the final tokens for that word.
-        """
+    def build_splits(self) -> None:
+        if self.words is not None:
+            self.splits = {word: [*word] for word in self.words}
 
-        adj_pairs = {}
-        for i in range(len(splitted_pre_tokens) - 1):
-            adj_pair = splitted_pre_tokens[i] + splitted_pre_tokens[i + 1]
-            for pre_token in pre_tokens:
-                if adj_pair in pre_token:
-                    if adj_pair not in adj_pairs:
-                        adj_pairs[adj_pair] = 1
-                    else:
-                        adj_pairs[adj_pair] += 1
+    def count_pairs(self):
+        adj_pairs = defaultdict(int)
+        for word, tokens in self.splits.items():
+            for i in range(len(tokens) - 1):
+                adj_pairs[(tokens[i], tokens[i + 1])] += self.words[word]
+        return adj_pairs
 
-        rules = [max(adj_pairs, key=adj_pairs.get)]
-        for rule in rules:
-            for i in range(len(splitted_pre_tokens) - 1):
-                adj_pair = splitted_pre_tokens[i] + splitted_pre_tokens[i + 1]
-                for pre_token in pre_tokens:
-                    if adj_pair in pre_token:
-                        rules.append(adj_pair)
-                    else:
-                        rules.extend(
-                            [splitted_pre_tokens[i], splitted_pre_tokens[i + 1]]
-                        )
+    def merge_pair(self, pair: tuple[str, str]):
+        merged = "".join(pair)
+        for word, tokens in self.splits.items():
+            new_split = []
+            i = 0
+            while i < len(tokens):
+                if i < len(tokens) - 1 and (tokens[i], tokens[i + 1]) == pair:
+                    new_split.append(merged)
+                    i += 2
+                else:
+                    new_split.append(tokens[i])
+                    i += 1
+            self.splits[word] = new_split
 
-        print(rules)
+    def tokenize(self):
+        pass
 
-    def tokenize(self, corpus: list[str]):
+    def train(self, corpus: list[str]):
         for phrase in corpus:
             normalized_phrase = self.normalization(phrase)
             pre_tokenized_phrase = self.pre_tokenization(normalized_phrase)
             self.compute_frequencies(pre_tokenized_phrase)
-            splitted_pre_tokens = self.single_char_split(pre_tokenized_phrase)
-            self.merge(pre_tokenized_phrase, splitted_pre_tokens)
+
+        self.build_splits()
+        print(self.splits)
+
+        while len(self.vocabulary) < self.max_tokens:
+            adj_pairs = self.count_pairs()
+            print(adj_pairs)
+            if not adj_pairs:
+                break
+
+            most_freq_pair = max(adj_pairs, key=adj_pairs.get)
+            self.merges.append(most_freq_pair)
+            self.vocabulary.append("".join(most_freq_pair))
+
+            self.merge_pair(most_freq_pair)
+
+        print(self.vocabulary)
