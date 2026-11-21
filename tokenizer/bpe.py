@@ -1,6 +1,5 @@
 import unicodedata
 from collections import defaultdict
-from itertools import count
 
 import regex as re
 
@@ -20,10 +19,10 @@ class Bpe:
         self.original = languages[0]
         self.translated = languages[1]
         self.max_tokens = max_tokens
-        self.vocabulary: dict[int, str] = self.bytes_to_unicode()
+        self.vocabulary, self.encoding_lookup = self.bytes_to_unicode()
         self.words: dict[str, int] = defaultdict(int)
         self.splits: dict[str, list[str]] = None
-        self.merges: dict[tuple[str, str]] = defaultdict(count(1).__next__)
+        self.merges: dict[tuple[str, str], int] = {}
 
     def bytes_to_unicode(self):
         # NOTE
@@ -43,7 +42,7 @@ class Bpe:
                 cs.append(2**8 + n)
                 n += 1
         cs = [chr(n) for n in cs]
-        return dict(zip(bs, cs))
+        return dict(zip(bs, cs)), dict(zip(cs, bs))
 
     def normalization(self, text: str) -> str:
         # NOTE
@@ -52,12 +51,23 @@ class Bpe:
         # NFC maintains canonical equivalence (e.g both é and e + accent produce the same unicode code);
         # Does not alter compatibility chars (e.g ligatures);
         # ASCII and Latin-1 safe.
+
+        # TODO
+        # I'm considering not using this normalization, it could screw up
+        # some decoding
+
         unicode_normalized_seq = unicodedata.normalize("NFC", text)
         cleaned_unicode = re.sub(r"[\u0300-\u036f]", "", unicode_normalized_seq)
-        return cleaned_unicode.strip()
+        return cleaned_unicode
 
     def pre_tokenization(self, text: str) -> list[str]:
-        return [str(w).encode("utf-8") for w in re.findall(GPT2_PATTERN, text)]
+        return re.findall(GPT2_PATTERN, text)
+
+    def tokenize(self, pre_tokenized_text: list[str]) -> list[list[str]]:
+        return [
+            [self.vocabulary[byte] for byte in word.encode("utf-8")]
+            for word in pre_tokenized_text
+        ]
 
     def compute_frequencies(self, pre_tokenized_list: list[str]) -> None:
         for word in pre_tokenized_list:
@@ -65,7 +75,9 @@ class Bpe:
 
     def build_splits(self) -> None:
         if self.words is not None:
-            self.splits = {word: [*word] for word in self.words}
+            words = list(self.words)
+            tokenized_words = self.tokenize(words)
+            self.splits = dict(zip(words, tokenized_words))
 
     def count_pairs(self):
         # TODO
@@ -98,26 +110,27 @@ class Bpe:
             if not adj_pairs:
                 break
 
-            # NOTE
-            # .get depends on insertions order
-            # use lambda
             most_freq_pair = max(adj_pairs, key=lambda p: (adj_pairs[p], p))
-            merge_rank = self.merges[most_freq_pair]
-            self.vocabulary[256 + merge_rank] = bytes(most_freq_pair).decode("utf-8")
+            merge_rank = len(self.merges) + 1
+            self.merges[most_freq_pair] = merge_rank
+            self.vocabulary[256 + (merge_rank - 1)] = "".join(most_freq_pair)
 
             self.merge_pair(most_freq_pair)
 
     def train(self, corpus: list[str]):
-        for phrase in corpus:
-            normalized_phrase = self.normalization(phrase)
-            pre_tokenized_phrase = self.pre_tokenization(normalized_phrase)
-            self.compute_frequencies(pre_tokenized_phrase)
+        for text in corpus:
+            normalized_text = self.normalization(text)
+            pre_tokenized_text = self.pre_tokenization(normalized_text)
+            self.compute_frequencies(pre_tokenized_text)
 
         self.build_splits()
         self.learn_merges()
 
-    def encode(self) -> list[int]:
-        raise NotImplementedError
+    def encode(self, text: str) -> list[int]:
+        normalized_text = self.normalization(text)
+        pre_tokenized_text = self.pre_tokenization(normalized_text)
+        tokenized_text = self.tokenize(pre_tokenized_text)
+        return [self.encoding_lookup[c] for word in tokenized_text for c in word]
 
-    def decode(self):
-        raise NotADirectoryError
+    def decode(self, tokens: list[int]) -> str:
+        return bytes(tokens).decode("utf-8")
