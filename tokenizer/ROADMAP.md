@@ -5,8 +5,8 @@
 - [X] Implement Byte-Level BPE pre-tokenization.
 - [X] Implement BPE pair frequency counting and merging.
 - [X] Implement vocabulary and merge rules.
-- [ ] Implement text encoding (text → token IDs).
-- [ ] Implement text decoding (token IDs → text).
+- [X] Implement text encoding (text → token IDs).
+- [X] Implement text decoding (token IDs → text).
 - [ ] Support special tokens.
 - [ ] Save and load tokenizer vocabulary and merge rules.
 
