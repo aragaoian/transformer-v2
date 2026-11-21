@@ -12,6 +12,17 @@ GPT2_PATTERN = re.compile(
 
 
 class Bpe:
+    """Byte Pair Enconding with byte-level tokenization.
+    At first, BPE was implemented with character-level tokenization which would
+    resulted in an incapacity to decode unkown IDs (without preserving the original char
+    in some way). With byte-level, every Unicode char becomes UTF-8 bytes and every possible byte
+    has a base token. This method is very effective for multi-lingual encoding and to address unknown
+    characters not seen in training."""
+
+    # TODO
+    # I'll consider removing this languages param
+    # bpe should only be responsible for tokenization, not handling the corpus
+
     def __init__(
         self, languages: tuple[str, str] = ("en", "pt"), max_tokens: int = 50257
     ):
