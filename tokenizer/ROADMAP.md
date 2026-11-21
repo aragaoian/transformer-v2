@@ -1,10 +1,10 @@
 # Roadmap — Byte-Level BPE Integration
 
 ## 1. Tokenizer Implementation
-- [ ] Implement GPT-2 byte-to-Unicode mapping.
-- [ ] Implement Byte-Level BPE pre-tokenization.
-- [ ] Implement BPE pair frequency counting and merging.
-- [ ] Implement vocabulary and merge rules.
+- [X] Implement GPT-2 byte-to-Unicode mapping.
+- [X] Implement Byte-Level BPE pre-tokenization.
+- [X] Implement BPE pair frequency counting and merging.
+- [X] Implement vocabulary and merge rules.
 - [ ] Implement text encoding (text → token IDs).
 - [ ] Implement text decoding (token IDs → text).
 - [ ] Support special tokens.

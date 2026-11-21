@@ -1,6 +1,5 @@
 import numpy as np
 import numpy.typing as npt
-
 from utils.activation_functions import ActivionFunctions
 
 

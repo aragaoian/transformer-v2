@@ -3,8 +3,8 @@ import random
 import numpy as np
 import numpy.typing as npt
 from rich.progress import track
-
 from transformers.data.words import BOS_TAG, EOS_TAG, PT, PT_IDX, ohe_columns
+
 from transformers.decoder import Decoder
 from transformers.encoder import Encoder
 

@@ -8,6 +8,7 @@ dependencies = [
     "numpy>=2.2.6",
     "pandas>=2.3.3",
     "pyarrow>=25.0.1",
+    "regex>=2026.9.29",
     "rich>=15.0.0",
     "ruff>=0.16.7",
 ]
